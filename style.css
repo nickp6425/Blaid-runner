@@ -1,0 +1,11 @@
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: url('taconic.jpg') no-repeat center center fixed;
+  background-size: cover;
+}
+canvas {
+  display: block;
+  margin: auto;
+}
