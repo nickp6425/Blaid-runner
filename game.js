@@ -1,66 +1,129 @@
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+let blaid = { x: 150, y: 600, width: 40, height: 60, lane: 1 };
+let copCars = [];
+let sugars = [];
+let score = 0;
+let speed = 3;
+let lastRooster = 0;
 
-let x = 50;
-let y = 200;
-let vy = 0;
-let gravity = 0.5;
-let gameOver = false;
+const lanes = [80, 150, 220];
+const images = {};
 
-const chickenImg = new Image();
-chickenImg.src = 'chicken.png';
-
-const carImg = new Image();
-carImg.src = 'car.png';
-
-function drawBlaid() {
-  ctx.fillStyle = 'blue';
-  ctx.fillRect(x, y, 40, 40);
+function loadImage(name, src) {
+  images[name] = new Image();
+  images[name].src = src;
 }
 
-function drawChicken() {
-  ctx.drawImage(chickenImg, 600, 220, 60, 60);
-}
+loadImage("blaid", "assets/blaid.png");
+loadImage("cop", "assets/cop_car.png");
+loadImage("sugar", "assets/sugar.png");
 
-function drawCar() {
-  ctx.drawImage(carImg, 400, 230, 80, 40);
+const music = new Audio("assets/music.mp3");
+const rooster = new Audio("assets/rooster.mp3");
+music.loop = true;
+music.volume = 0.2;
+music.play();
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(images["blaid"], blaid.x, blaid.y, blaid.width, blaid.height);
+  for (let car of copCars) {
+    ctx.drawImage(images["cop"], car.x, car.y, car.width, car.height);
+  }
+  for (let sugar of sugars) {
+    ctx.drawImage(images["sugar"], sugar.x, sugar.y, sugar.width, sugar.height);
+  }
 }
 
 function update() {
-  if (gameOver) return;
+  score += 1;
+  document.getElementById("score").innerText = `Score: ${score} ft`;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawBlaid();
-  drawChicken();
-  drawCar();
+  copCars.forEach(c => c.y += speed);
+  sugars.forEach(s => s.y += speed);
 
-  y += vy;
-  vy += gravity;
+  copCars = copCars.filter(c => c.y < 700);
+  sugars = sugars.filter(s => s.y < 700);
 
-  if (y > canvas.height - 40) {
-    y = canvas.height - 40;
-    vy = 0;
+  for (let c of copCars) {
+    if (isColliding(blaid, c)) {
+      gameOver();
+      return;
+    }
   }
 
-  if (x + 40 > 400 && x < 480 && y + 40 > 230) {
-    gameOver = true;
-    showGameOver();
+  for (let i = 0; i < sugars.length; i++) {
+    if (isColliding(blaid, sugars[i])) {
+      speed += 1;
+      sugars.splice(i, 1);
+    }
   }
 
-  requestAnimationFrame(update);
+  if (score - lastRooster >= 500) {
+    rooster.play();
+    lastRooster = score;
+  }
+
+  draw();
 }
 
-function showGameOver() {
-  ctx.fillStyle = "rgba(0,0,0,0.7)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#fff";
-  ctx.font = "30px Comic Sans MS";
-  ctx.fillText("You got swarmed by roosters!", 180, 200);
+function isColliding(a, b) {
+  return !(
+    a.x + a.width < b.x ||
+    a.x > b.x + b.width ||
+    a.y + a.height < b.y ||
+    a.y > b.y + b.height
+  );
 }
 
-canvas.addEventListener('click', () => {
-  if (!gameOver) vy = -10;
-});
+function gameOver() {
+  music.pause();
+  window.location.href = "game_over.html";
+}
 
-update();
+function gameLoop() {
+  update();
+  requestAnimationFrame(gameLoop);
+}
+
+function spawnObstacle() {
+  const lane = Math.floor(Math.random() * 3);
+  copCars.push({ x: lanes[lane], y: -60, width: 50, height: 60 });
+}
+
+function spawnSugar() {
+  const lane = Math.floor(Math.random() * 3);
+  sugars.push({ x: lanes[lane], y: -40, width: 30, height: 30 });
+}
+
+setInterval(spawnObstacle, 1200);
+setInterval(spawnSugar, 2500);
+
+document.addEventListener("touchstart", handleTouchStart, false);
+document.addEventListener("touchmove", handleTouchMove, false);
+
+let xDown = null;
+
+function handleTouchStart(evt) {
+  xDown = evt.touches[0].clientX;
+}
+
+function handleTouchMove(evt) {
+  if (!xDown) return;
+  let xUp = evt.touches[0].clientX;
+  let xDiff = xDown - xUp;
+
+  if (Math.abs(xDiff) > 30) {
+    if (xDiff > 0 && blaid.lane > 0) {
+      blaid.lane--;
+    } else if (xDiff < 0 && blaid.lane < 2) {
+      blaid.lane++;
+    }
+    blaid.x = lanes[blaid.lane];
+    xDown = null;
+  }
+}
+
+gameLoop();
